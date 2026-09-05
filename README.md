@@ -107,7 +107,18 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
 
 也可在仓库的 **Actions → Build Compass → Run workflow** 手动触发。编译完成后，在对应运行页面的 **Artifacts** 中下载 `Compass-x64-x86`，解压得到 `Compass x64_x86.exe`。
 
-该工作流上传构建附件，不自动创建 Release。如果仓库禁用了 Actions，需要先在 **Settings → Actions → General** 中启用。
+普通分支推送只编译并上传构建附件；推送 `v*` 版本标签时，会在编译成功后自动创建 GitHub Release，并附上 EXE。程序文件无需提交进 Git 仓库。
+
+例如发布当前版本：
+
+```powershell
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+后续发布使用新的版本标签，并先更新源码中的版本信息；不要覆盖已发布的标签。Release 页面可直接下载 EXE，不必解压 Actions 构建附件。
+
+只有标签发布任务申请 `contents: write` 权限，普通编译任务保持只读权限。如果仓库禁用了 Actions，需要先在 **Settings → Actions → General** 中启用。
 
 ## 文件说明
 
