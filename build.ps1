@@ -1,7 +1,10 @@
 param([string]$OutputDirectory)
 $ErrorActionPreference = 'Stop'
 
-$source = Join-Path $PSScriptRoot 'CompassVector.cs'
+$sources = 'CompassVector.cs', 'CoverageMath.cs', 'CoverageCoordinates.cs',
+    'CoveragePreview.cs', 'CoverageWindow.cs', 'OvitClient.cs' |
+    ForEach-Object { Join-Path $PSScriptRoot $_ }
+$notices = Join-Path $PSScriptRoot 'ThirdPartyNotices.txt'
 $icon = Join-Path $PSScriptRoot 'icon.ico'
 $manifest = Join-Path $PSScriptRoot 'app.manifest'
 if (-not $OutputDirectory) { $OutputDirectory = $PSScriptRoot }
@@ -20,11 +23,15 @@ New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
     /win32icon:$icon `
     /win32manifest:$manifest `
     /reference:System.dll `
+    /reference:System.Core.dll `
+    /reference:System.Xml.dll `
+    /reference:System.Web.Extensions.dll `
     /reference:System.Xaml.dll `
     /reference:"$wpf\WindowsBase.dll" `
     /reference:"$wpf\PresentationCore.dll" `
     /reference:"$wpf\PresentationFramework.dll" `
-    $source
+    /resource:"$notices,Compass.ThirdPartyNotices" `
+    $sources
 
 if ($LASTEXITCODE -ne 0) {
     throw "编译失败，退出码 $LASTEXITCODE"

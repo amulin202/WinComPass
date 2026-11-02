@@ -20,15 +20,18 @@ using System.Windows.Media;
 internal static class Program
 {
     [STAThread]
-    private static void Main()
+    private static void Main(string[] args)
     {
-        new Application().Run(new CompassForm());
+        bool coverage = Array.IndexOf(args, "--coverage") >= 0;
+        new Application().Run(coverage ? (Window)new CoverageWindow(null) : new CompassForm());
     }
 }
 
 internal sealed class CompassForm : Window
 {
     private readonly CompassSurface surface;
+    private CoverageWindow coverageWindow;
+    internal event Action<double> AzimuthChanged;
 
     public CompassForm()
     {
@@ -43,7 +46,37 @@ internal sealed class CompassForm : Window
         ShowInTaskbar = true;
         surface = new CompassSurface(this);
         Content = surface;
+        ContextMenu menu = new ContextMenu();
+        MenuItem coverage = new MenuItem { Header = "天线覆盖…", InputGestureText = "F2" };
+        coverage.Click += delegate { ShowCoverage(); };
+        menu.Items.Add(coverage);
+        MenuItem licenses = new MenuItem { Header = "第三方许可…" };
+        licenses.Click += delegate { CoverageWindow.ShowNotices(this); };
+        menu.Items.Add(licenses);
+        ContextMenu = menu;
+        KeyDown += delegate(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.F2) { ShowCoverage(); e.Handled = true; }
+        };
         Loaded += delegate { surface.Focus(); };
+    }
+
+    internal void ShowCoverage()
+    {
+        if (coverageWindow == null)
+        {
+            coverageWindow = new CoverageWindow(this) { Owner = this };
+            coverageWindow.Closed += delegate { coverageWindow = null; };
+        }
+        coverageWindow.Show();
+        if (coverageWindow.WindowState == WindowState.Minimized) coverageWindow.WindowState = WindowState.Normal;
+        coverageWindow.Activate();
+    }
+
+    internal void NotifyAzimuthChanged()
+    {
+        Action<double> changed = AzimuthChanged;
+        if (changed != null) changed(Azimuth);
     }
 
     public double Azimuth
@@ -105,6 +138,7 @@ internal sealed class CompassSurface : FrameworkElement
                 throw new ArgumentOutOfRangeException("value");
             rotation = -Normalize(value);
             InvalidateVisual();
+            window.NotifyAzimuthChanged();
         }
     }
 
@@ -356,6 +390,7 @@ internal sealed class CompassSurface : FrameworkElement
             rotation += delta;
             lastPointerAngle = angle;
             InvalidateVisual();
+            window.NotifyAzimuthChanged();
             return;
         }
         int next = HitButton(point);

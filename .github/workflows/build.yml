@@ -24,6 +24,10 @@ jobs:
         shell: pwsh
         run: .\build.ps1 -OutputDirectory .\dist
 
+      - name: Verify coverage calculations and protocol
+        shell: pwsh
+        run: .\tests\run-tests.ps1
+
       - name: Upload executable
         uses: actions/upload-artifact@v4
         with:
