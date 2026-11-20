@@ -12,31 +12,29 @@ using System.Windows.Media;
 [assembly: AssemblyProduct("Win桌面罗盘")]
 [assembly: AssemblyCompany("流氓工作室")]
 [assembly: AssemblyMetadata("Author", "LmTec")]
-[assembly: AssemblyVersion("1.1.0.0")]
-[assembly: AssemblyFileVersion("1.1.0.0")]
-[assembly: AssemblyInformationalVersion("1.1")]
+[assembly: AssemblyVersion("1.2.0.0")]
+[assembly: AssemblyFileVersion("1.2.0.0")]
+[assembly: AssemblyInformationalVersion("1.2.0.0")]
 [assembly: System.Runtime.Versioning.TargetFramework(".NETFramework,Version=v4.8")]
 
 internal static class Program
 {
     [STAThread]
-    private static void Main(string[] args)
+    private static void Main()
     {
-        bool coverage = Array.IndexOf(args, "--coverage") >= 0;
-        new Application().Run(coverage ? (Window)new CoverageWindow(null) : new CompassForm());
+        new Application().Run(new CompassForm());
     }
 }
 
 internal sealed class CompassForm : Window
 {
     private readonly CompassSurface surface;
-    private CoverageWindow coverageWindow;
-    internal event Action<double> AzimuthChanged;
 
     public CompassForm()
     {
         Title = "方位角罗盘";
-        Width = Height = CompassSurface.DialSize;
+        Width = CompassSurface.DialWidth;
+        Height = CompassSurface.DialHeight;
         ResizeMode = ResizeMode.NoResize;
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
@@ -46,67 +44,42 @@ internal sealed class CompassForm : Window
         ShowInTaskbar = true;
         surface = new CompassSurface(this);
         Content = surface;
-        ContextMenu menu = new ContextMenu();
-        MenuItem coverage = new MenuItem { Header = "天线覆盖…", InputGestureText = "F2" };
-        coverage.Click += delegate { ShowCoverage(); };
-        menu.Items.Add(coverage);
-        ContextMenu = menu;
-        KeyDown += delegate(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.F2) { ShowCoverage(); e.Handled = true; }
-        };
         Loaded += delegate { surface.Focus(); };
-    }
-
-    internal void ShowCoverage()
-    {
-        if (coverageWindow == null)
-        {
-            coverageWindow = new CoverageWindow(this) { Owner = this };
-            coverageWindow.Closed += delegate { coverageWindow = null; };
-        }
-        coverageWindow.Show();
-        if (coverageWindow.WindowState == WindowState.Minimized) coverageWindow.WindowState = WindowState.Normal;
-        coverageWindow.Activate();
-    }
-
-    internal void NotifyAzimuthChanged()
-    {
-        Action<double> changed = AzimuthChanged;
-        if (changed != null) changed(Azimuth);
-    }
-
-    public double Azimuth
-    {
-        get { return surface.Azimuth; }
-        set { surface.Azimuth = value; }
     }
 }
 
 internal sealed class CompassSurface : FrameworkElement
 {
-    internal const double DialSize = 344;
-    private const double Center = DialSize / 2;
-    private const double Radius = 146;
-    private const double InnerRadius = 93;
-    private const double ButtonHalfSize = 10;
-    private static readonly Point DialCenter = new Point(Center, Center);
-    private static readonly Brush RingFill = Brush(255, 238, 162);
-    private static readonly Brush Ink = Brush(35, 32, 27);
+    internal const double DialWidth = 251;
+    internal const double DialHeight = 249;
+    private const double CenterX = DialWidth / 2;
+    private const double CenterY = DialHeight / 2;
+    private const double Radius = 121;
+    private const double InnerRadius = 90;
+    private const double CrosshairRadius = 86;
+    private const double ButtonHitHalfSize = 10;
+    private const double ButtonFaceHalfSize = 7.5;
+    private static readonly Point DialCenter = new Point(CenterX, CenterY);
+    private static readonly Brush RingFill = Brush(252, 254, 4);
+    private static readonly Brush RingEdge = Brush(146, 137, 53);
+    private static readonly Brush PointerInk = Brush(171, 35, 45);
+    private static readonly Brush ButtonSwatch = Brush(252, 254, 4);
+    private static readonly Brush Ink = Brushes.Black;
+    // A second, partially opaque pass darkens antialiased pixels without widening the path.
+    private static readonly Brush InkBoost = new SolidColorBrush(Color.FromArgb(128, 0, 0, 0));
     private static readonly Brush Red = Brush(185, 27, 49);
     private static readonly Brush Blue = Brush(20, 78, 163);
     private static readonly Brush LightEdge = Brush(255, 252, 239);
-    private static readonly Brush CrosshairEdge = ColorBrush(Color.FromArgb(175, 255, 252, 239));
     private static readonly Brush HitFill = new SolidColorBrush(Color.FromArgb(1, 0, 0, 0));
     private static readonly Geometry Ring = CreateRing();
-    private static readonly Typeface LabelFace = new Typeface(
-        new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
-    private static readonly string[] Directions = { "N", "E", "S", "W" };
+    private static readonly Typeface NumberFace = new Typeface(
+        new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+    private static readonly Pen NumberHalo = new Pen(LightEdge, 0.8) { LineJoin = PenLineJoin.Round };
     private static readonly Point[] Buttons = {
-        new Point(Center - 38, Center - 24), new Point(Center + 38, Center - 24),
-        new Point(Center + 13, Center - 24), new Point(Center - 13, Center - 24),
-        new Point(Center - 38, Center + 24), new Point(Center - 13, Center + 24),
-        new Point(Center + 13, Center + 24), new Point(Center + 38, Center + 24)
+        new Point(CenterX - 37, CenterY - 18), new Point(CenterX + 37, CenterY - 18),
+        new Point(CenterX + 15, CenterY - 18), new Point(CenterX - 15, CenterY - 18),
+        new Point(CenterX - 37, CenterY + 18), new Point(CenterX - 15, CenterY + 18),
+        new Point(CenterX + 15, CenterY + 18), new Point(CenterX + 37, CenterY + 18)
     };
     private static readonly string[] ButtonNames = {
         "关闭", "移动罗盘", "切换底色", "置顶", "左移", "右移", "上移", "下移"
@@ -148,7 +121,6 @@ internal sealed class CompassSurface : FrameworkElement
                 throw new ArgumentOutOfRangeException("value");
             rotation = -Normalize(value);
             InvalidateVisual();
-            window.NotifyAzimuthChanged();
         }
     }
 
@@ -157,47 +129,88 @@ internal sealed class CompassSurface : FrameworkElement
         base.OnRender(drawing);
         // Nonzero alpha prevents click-through in otherwise clear parts of the dial.
         drawing.DrawEllipse(HitFill, null, DialCenter, Radius + 3, Radius + 3);
-        if (!ringTransparent) drawing.DrawGeometry(RingFill, null, Ring);
-        else drawing.DrawEllipse(null, new Pen(LightEdge, 3.8), DialCenter, Radius, Radius);
-        Pen minor = new Pen(ringTransparent ? Brushes.Gray : Ink, 1.0);
-        Pen halfStep = new Pen(Ink, 1.25);
-        Pen decade = new Pen(Ink, 1.5);
-        Pen major = new Pen(Ink, 2.0);
-        Pen cardinal = new Pen(Ink, 2.6);
-        Pen tickOutline = new Pen(LightEdge, 3.6);
-        for (int angle = 0; angle < 360; angle++)
+        if (!ringTransparent)
         {
-            double length;
-            Pen pen;
-            if (angle % 90 == 0) { length = 24; pen = cardinal; }
-            else if (angle % 30 == 0) { length = 16; pen = major; }
-            else if (angle % 10 == 0) { length = 12; pen = decade; }
-            else if (angle % 5 == 0) { length = 8; pen = halfStep; }
-            else { length = 4; pen = minor; }
+            drawing.DrawGeometry(RingFill, null, Ring);
+            drawing.DrawEllipse(null, new Pen(RingEdge, 0.6), DialCenter, Radius, Radius);
+        }
+        else drawing.DrawEllipse(null, new Pen(LightEdge, 1.8), DialCenter, Radius, Radius);
+        DpiScale dpi = VisualTreeHelper.GetDpi(this);
+        DrawTicks(drawing, dpi);
+        if (ringTransparent) drawing.DrawEllipse(null, new Pen(Ink, 0.7), DialCenter, Radius, Radius);
+
+        for (int angle = 0; angle < 360; angle += 10)
+            DrawLabel(drawing, angle, dpi);
+
+        DrawInnerTickExtensions(drawing);
+        DrawCrosshair(drawing, dpi);
+        drawing.DrawGeometry(PointerInk, null, Polygon(
+            new Point(CenterX, CenterY - Radius + 1),
+            new Point(CenterX - 2.5, CenterY - Radius - 2.5), new Point(CenterX + 2.5, CenterY - Radius - 2.5)));
+        for (int index = 0; index < Buttons.Length; index++)
+            DrawButton(drawing, index, dpi);
+    }
+
+    private void DrawTicks(DrawingContext drawing, DpiScale dpi)
+    {
+        Pen halfStep = new Pen(Ink, 0.95);
+        Pen decade = new Pen(Ink, 1.05);
+        Pen halfStepBoost = new Pen(InkBoost, halfStep.Thickness);
+        Pen decadeBoost = new Pen(InkBoost, decade.Thickness);
+        Pen tickOutline = new Pen(LightEdge, 1.85);
+        Pen fineTickOutline = new Pen(LightEdge, 1.75);
+        for (int angle = 0; angle < 360; angle += 5)
+        {
+            bool numbered = angle % 10 == 0;
+            double length = numbered ? 9 : 5;
             Vector direction = (Vector)Polar(1, angle + rotation);
             Point start = DialCenter + direction * (Radius - length);
             Point end = DialCenter + direction * Radius;
-            if (ringTransparent && angle % 10 == 0) drawing.DrawLine(tickOutline, start, end);
-            drawing.DrawLine(pen, start, end);
+            if (ringTransparent)
+                DrawTick(drawing, numbered ? tickOutline : fineTickOutline, start, end, dpi);
+            DrawTick(drawing, numbered ? decade : halfStep, start, end, dpi);
+            DrawTick(drawing, numbered ? decadeBoost : halfStepBoost, start, end, dpi);
         }
-        drawing.DrawEllipse(null, new Pen(Ink, 1.5), DialCenter, Radius, Radius);
+    }
 
-        DpiScale dpi = VisualTreeHelper.GetDpi(this);
-        for (int i = 0; i < 4; i++)
-            DrawLabel(drawing, Directions[i], 16, i == 0 ? Red : Ink, i * 90, 107, dpi);
-
+    private void DrawInnerTickExtensions(DrawingContext drawing)
+    {
+        const double extensionLength = 24;
+        const double gap = 2;
+        Pen ink = new Pen(Ink, 1.15);
+        Pen boost = new Pen(InkBoost, ink.Thickness);
         for (int angle = 0; angle < 360; angle += 10)
         {
-            if (angle % 90 == 0) continue;
-            DrawLabel(drawing, angle.ToString(CultureInfo.InvariantCulture), 10.5, Ink, angle, 118, dpi);
+            Vector direction = (Vector)Polar(1, angle + rotation);
+            // The fixed crosshair already covers the screen axes.
+            if (Math.Abs(direction.X) < 0.0001 || Math.Abs(direction.Y) < 0.0001) continue;
+            Point start = DialCenter + direction * (InnerRadius - gap - extensionLength);
+            Point end = DialCenter + direction * (InnerRadius - gap);
+            drawing.DrawLine(ink, start, end);
+            drawing.DrawLine(boost, start, end);
         }
+    }
 
-        DrawCrosshair(drawing, dpi);
-        drawing.DrawGeometry(Red, new Pen(LightEdge, 1.2) { LineJoin = PenLineJoin.Round }, Polygon(
-            new Point(Center, Center - Radius - 3),
-            new Point(Center - 8, Center - Radius - 17), new Point(Center + 8, Center - Radius - 17)));
-        for (int index = 0; index < Buttons.Length; index++)
-            DrawButton(drawing, index, dpi);
+    private static void DrawTick(DrawingContext drawing, Pen pen, Point start, Point end, DpiScale dpi)
+    {
+        const double axisTolerance = 0.0001;
+        if (Math.Abs(start.X - end.X) < axisTolerance)
+        {
+            double width = PhysicalStroke(pen.Thickness, dpi.DpiScaleX);
+            double top = PixelEdge(Math.Min(start.Y, end.Y), dpi.DpiScaleY);
+            double bottom = PixelEdge(Math.Max(start.Y, end.Y), dpi.DpiScaleY);
+            drawing.DrawRectangle(pen.Brush, null,
+                new Rect(PixelEdge(start.X - width / 2, dpi.DpiScaleX), top, width, bottom - top));
+        }
+        else if (Math.Abs(start.Y - end.Y) < axisTolerance)
+        {
+            double height = PhysicalStroke(pen.Thickness, dpi.DpiScaleY);
+            double left = PixelEdge(Math.Min(start.X, end.X), dpi.DpiScaleX);
+            double right = PixelEdge(Math.Max(start.X, end.X), dpi.DpiScaleX);
+            drawing.DrawRectangle(pen.Brush, null,
+                new Rect(left, PixelEdge(start.Y - height / 2, dpi.DpiScaleY), right - left, height));
+        }
+        else drawing.DrawLine(pen, start, end);
     }
 
     protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi)
@@ -208,27 +221,19 @@ internal sealed class CompassSurface : FrameworkElement
 
     private void DrawCrosshair(DrawingContext drawing, DpiScale dpi)
     {
-        double width = PhysicalStroke(1.5, dpi.DpiScaleX);
-        double height = PhysicalStroke(1.5, dpi.DpiScaleY);
-        double crossLeft = PixelEdge(Center - width / 2, dpi.DpiScaleX);
-        double crossTop = PixelEdge(Center - height / 2, dpi.DpiScaleY);
-        double edgeX = 1 / dpi.DpiScaleX, edgeY = 1 / dpi.DpiScaleY;
-        drawing.PushClip(new EllipseGeometry(DialCenter, InnerRadius, InnerRadius));
-        // Fill the two arms together so the translucent outline does not darken at their intersection.
-        GeometryGroup crossEdge = new GeometryGroup { FillRule = FillRule.Nonzero };
-        crossEdge.Children.Add(new RectangleGeometry(new Rect(Center - InnerRadius, crossTop - edgeY,
-            InnerRadius * 2, height + 2 * edgeY)));
-        crossEdge.Children.Add(new RectangleGeometry(new Rect(crossLeft - edgeX, Center - InnerRadius,
-            width + 2 * edgeX, InnerRadius * 2)));
-        drawing.DrawGeometry(CrosshairEdge, null, crossEdge);
+        double width = PhysicalStroke(1, dpi.DpiScaleX);
+        double height = PhysicalStroke(1, dpi.DpiScaleY);
+        double crossLeft = PixelEdge(CenterX - width / 2, dpi.DpiScaleX);
+        double crossTop = PixelEdge(CenterY - height / 2, dpi.DpiScaleY);
+        drawing.PushClip(new EllipseGeometry(DialCenter, CrosshairRadius, CrosshairRadius));
         const int segmentCount = 20;
-        double segmentLength = InnerRadius * 2 / segmentCount;
+        double segmentLength = CrosshairRadius * 2 / segmentCount;
         for (int segment = 0; segment < segmentCount; segment++)
         {
-            double start = Center - InnerRadius + segment * segmentLength;
-            double end = Center - InnerRadius + (segment + 1) * segmentLength;
-            double left = PixelEdge(start, dpi.DpiScaleX), right = PixelEdge(end, dpi.DpiScaleX);
-            double top = PixelEdge(start, dpi.DpiScaleY), bottom = PixelEdge(end, dpi.DpiScaleY);
+            double start = -CrosshairRadius + segment * segmentLength;
+            double end = -CrosshairRadius + (segment + 1) * segmentLength;
+            double left = PixelEdge(CenterX + start, dpi.DpiScaleX), right = PixelEdge(CenterX + end, dpi.DpiScaleX);
+            double top = PixelEdge(CenterY + start, dpi.DpiScaleY), bottom = PixelEdge(CenterY + end, dpi.DpiScaleY);
             Brush color = segment % 2 == 0 ? Red : Blue;
             drawing.DrawRectangle(color, null, new Rect(left, crossTop, right - left, height));
             drawing.DrawRectangle(color, null, new Rect(crossLeft, top, width, bottom - top));
@@ -245,86 +250,126 @@ internal sealed class CompassSurface : FrameworkElement
         return ring;
     }
 
-    private void DrawLabel(DrawingContext drawing, string text, double size, Brush brush,
-        double angle, double radius, DpiScale dpi)
+    private void DrawLabel(DrawingContext drawing, int angle, DpiScale dpi)
     {
-        FormattedText label = new FormattedText(text, CultureInfo.InvariantCulture,
-            FlowDirection.LeftToRight, LabelFace, size, brush, null,
+        FormattedText label = new FormattedText(angle.ToString(CultureInfo.InvariantCulture),
+            CultureInfo.InvariantCulture, FlowDirection.LeftToRight, NumberFace, 8, Ink, null,
             TextFormattingMode.Display, dpi.PixelsPerDip);
-        Point position = DialCenter + (Vector)Polar(radius, angle + rotation);
-        Point origin = new Point(PixelEdge(position.X - label.Width / 2, dpi.DpiScaleX),
-            PixelEdge(position.Y - label.Height / 2, dpi.DpiScaleY));
+        Geometry glyph = label.BuildGeometry(new Point());
+        Rect bounds = glyph.Bounds;
+        Point position = DialCenter + (Vector)Polar(99.8, angle + rotation);
+        Point origin = new Point(PixelEdge(position.X - bounds.X - bounds.Width / 2, dpi.DpiScaleX),
+            PixelEdge(position.Y - bounds.Y - bounds.Height / 2, dpi.DpiScaleY));
         if (ringTransparent)
         {
-            Pen halo = new Pen(LightEdge, 1.6) { LineJoin = PenLineJoin.Round };
-            Geometry outline = label.BuildGeometry(origin);
-            drawing.DrawGeometry(null, halo, outline);
-            drawing.DrawGeometry(brush, null, outline);
+            // Outline and fill use the exact same shape so they cannot drift apart.
+            drawing.PushTransform(new TranslateTransform(origin.X, origin.Y));
+            drawing.DrawGeometry(LightEdge, NumberHalo, glyph);
+            drawing.DrawGeometry(Ink, null, glyph);
+            drawing.DrawGeometry(InkBoost, null, glyph);
+            drawing.Pop();
         }
-        else drawing.DrawText(label, origin);
+        else
+        {
+            drawing.DrawText(label, origin);
+            label.SetForegroundBrush(InkBoost);
+            drawing.DrawText(label, origin);
+        }
     }
 
     private void DrawButton(DrawingContext drawing, int index, DpiScale dpi)
     {
         Point center = Buttons[index];
         bool active = (index == 2 && ringTransparent) || (index == 3 && window.Topmost);
-        Brush face = active ? Brush(218, 233, 253) : hovered == index ? Brush(239, 246, 255) : Brushes.White;
-        Brush border = active || hovered == index ? Blue : Brush(111, 120, 132);
-        double left = PixelEdge(center.X - ButtonHalfSize, dpi.DpiScaleX);
-        double top = PixelEdge(center.Y - ButtonHalfSize, dpi.DpiScaleY);
-        double width = PixelEdge(center.X + ButtonHalfSize, dpi.DpiScaleX) - left;
-        double height = PixelEdge(center.Y + ButtonHalfSize, dpi.DpiScaleY) - top;
+        Brush face = active ? Brush(219, 233, 248) : hovered == index ? Brush(249, 251, 254) : Brush(240, 240, 240);
+        Brush border = active || hovered == index ? Brush(114, 145, 184) : Brush(185, 190, 196);
+        double left = PixelEdge(center.X - ButtonFaceHalfSize, dpi.DpiScaleX);
+        double top = PixelEdge(center.Y - ButtonFaceHalfSize, dpi.DpiScaleY);
+        double width = PixelEdge(center.X + ButtonFaceHalfSize, dpi.DpiScaleX) - left;
+        double height = PixelEdge(center.Y + ButtonFaceHalfSize, dpi.DpiScaleY) - top;
         double edgeX = PhysicalStroke(1, dpi.DpiScaleX), edgeY = PhysicalStroke(1, dpi.DpiScaleY);
-        drawing.DrawRoundedRectangle(border, null, new Rect(left, top, width, height), 3.5, 3.5);
+        const double corner = 1.5;
+        drawing.DrawRoundedRectangle(border, null, new Rect(left, top, width, height), corner, corner);
         drawing.DrawRoundedRectangle(face, null,
             new Rect(left + edgeX, top + edgeY, width - 2 * edgeX, height - 2 * edgeY),
-            3.5 - edgeX, 3.5 - edgeY);
+            corner - edgeX, corner - edgeY);
 
-        double iconStroke = PhysicalStroke(1.6, dpi.DpiScaleX);
-        double halfStroke = iconStroke / 2;
-        double x = PixelEdge(center.X - halfStroke, dpi.DpiScaleX) + halfStroke;
-        double y = PixelEdge(center.Y - halfStroke, dpi.DpiScaleY) + halfStroke;
-        drawing.PushTransform(new TranslateTransform(x, y));
-        Pen ink = new Pen(index == 0 ? Red : Blue, iconStroke);
-        ink.StartLineCap = ink.EndLineCap = PenLineCap.Round;
-        ink.LineJoin = PenLineJoin.Round;
+        Point iconCenter = new Point(left + width / 2, top + height / 2);
+        double x = iconCenter.X;
+        double y = iconCenter.Y;
         if (index == 0)
         {
-            drawing.DrawLine(ink, new Point(-4, -4), new Point(4, 4));
-            drawing.DrawLine(ink, new Point(-4, 4), new Point(4, -4));
+            const double outer = 4.75, inner = 3.4, join = outer - inner;
+            drawing.DrawGeometry(Red, null, Polygon(
+                new Point(x - outer, y - inner), new Point(x - inner, y - outer),
+                new Point(x, y - join), new Point(x + inner, y - outer), new Point(x + outer, y - inner),
+                new Point(x + join, y), new Point(x + outer, y + inner), new Point(x + inner, y + outer),
+                new Point(x, y + join), new Point(x - inner, y + outer), new Point(x - outer, y + inner),
+                new Point(x - join, y)));
         }
         else if (index == 1)
         {
-            for (int i = 0; i < 4; i++) DrawArrow(drawing, ink, i * 90, 0);
+            for (int i = 0; i < 4; i++) DrawArrow(drawing, iconCenter, dpi, i, true);
         }
         else if (index == 2)
         {
-            drawing.DrawEllipse(ringTransparent ? null : RingFill, ink, new Point(), 5, 5);
-            if (ringTransparent) drawing.DrawLine(ink, new Point(-4.5, 4.5), new Point(4.5, -4.5));
+            drawing.DrawEllipse(Blue, null, iconCenter, 5.4, 5.4);
+            drawing.DrawEllipse(ringTransparent ? face : ButtonSwatch, null, iconCenter, 3.65, 3.65);
+            if (ringTransparent)
+                drawing.DrawLine(new Pen(Blue, 1.6), new Point(x - 3.7, y + 3.7), new Point(x + 3.7, y - 3.7));
         }
         else if (index == 3)
         {
-            drawing.DrawLine(ink, new Point(-4.5, -5), new Point(4.5, -5));
-            drawing.DrawGeometry(ink.Brush, null, Polygon(
-                new Point(-3, -5), new Point(3, -5), new Point(2, 1), new Point(-2, 1)));
-            drawing.DrawLine(ink, new Point(-4, 1), new Point(4, 1));
-            drawing.DrawLine(ink, new Point(0, 1), new Point(0, 6));
+            DrawIconBar(drawing, dpi, x - 4, y - 5.5, x + 4, y - 3.5);
+            drawing.DrawGeometry(Blue, null, Polygon(
+                new Point(x - 2.75, y - 4.5), new Point(x + 2.75, y - 4.5),
+                new Point(x + 1.8, y + 1), new Point(x - 1.8, y + 1)));
+            DrawIconBar(drawing, dpi, x - 3.7, y, x + 3.7, y + 2);
+            double needle = PhysicalStroke(1, dpi.DpiScaleX);
+            double needleLeft = PixelEdge(x - needle / 2, dpi.DpiScaleX);
+            DrawIconBar(drawing, dpi, needleLeft, y + 1, needleLeft + needle, y + 5.5);
         }
         else
         {
-            double[] angles = { 270, 90, 0, 180 };
-            DrawArrow(drawing, ink, angles[index - 4], 5);
+            int direction = index == 4 ? 3 : index == 5 ? 1 : index == 6 ? 0 : 2;
+            DrawArrow(drawing, iconCenter, dpi, direction, false);
         }
-        drawing.Pop();
     }
 
-    private static void DrawArrow(DrawingContext drawing, Pen pen, double angle, double tail)
+    private static void DrawIconBar(DrawingContext drawing, DpiScale dpi,
+        double left, double top, double right, double bottom)
     {
-        drawing.PushTransform(new RotateTransform(angle));
-        drawing.DrawLine(pen, new Point(0, tail), new Point(0, -6));
-        drawing.DrawLine(pen, new Point(0, -6), new Point(-2.7, -3));
-        drawing.DrawLine(pen, new Point(0, -6), new Point(2.7, -3));
-        drawing.Pop();
+        Point start = new Point(PixelEdge(left, dpi.DpiScaleX), PixelEdge(top, dpi.DpiScaleY));
+        Point end = new Point(PixelEdge(right, dpi.DpiScaleX), PixelEdge(bottom, dpi.DpiScaleY));
+        drawing.DrawRectangle(Blue, null, new Rect(start, end));
+    }
+
+    private static void DrawArrow(DrawingContext drawing, Point center, DpiScale dpi, int direction, bool fourWay)
+    {
+        // Direction starts at up and increases clockwise. Align straight edges before filling the arrow.
+        bool vertical = direction % 2 == 0;
+        int sign = direction == 0 || direction == 3 ? -1 : 1;
+        double forwardCenter = vertical ? center.Y : center.X;
+        double forwardScale = vertical ? dpi.DpiScaleY : dpi.DpiScaleX;
+        double sideCenter = vertical ? center.X : center.Y;
+        double sideScale = vertical ? dpi.DpiScaleX : dpi.DpiScaleY;
+        double shaftWidth = PhysicalStroke(fourWay ? 1.4 : 1.7, sideScale);
+        double shaftLeft = PixelEdge(sideCenter - shaftWidth / 2, sideScale);
+        double shaftRight = shaftLeft + shaftWidth;
+        double wing = PhysicalStroke(fourWay ? 1.5 : 2, sideScale);
+        double tip = PixelEdge(forwardCenter + sign * 5.5, forwardScale);
+        double shoulder = PixelEdge(forwardCenter + sign * (fourWay ? 3 : 1.5), forwardScale);
+        double tail = PixelEdge(forwardCenter - sign * (fourWay ? 1 : 5), forwardScale);
+        drawing.DrawGeometry(Blue, null, Polygon(
+            ArrowPoint(vertical, tail, shaftLeft), ArrowPoint(vertical, shoulder, shaftLeft),
+            ArrowPoint(vertical, shoulder, shaftLeft - wing), ArrowPoint(vertical, tip, (shaftLeft + shaftRight) / 2),
+            ArrowPoint(vertical, shoulder, shaftRight + wing), ArrowPoint(vertical, shoulder, shaftRight),
+            ArrowPoint(vertical, tail, shaftRight)));
+    }
+
+    private static Point ArrowPoint(bool vertical, double forward, double side)
+    {
+        return vertical ? new Point(side, forward) : new Point(forward, side);
     }
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
@@ -372,7 +417,6 @@ internal sealed class CompassSurface : FrameworkElement
             rotation += delta;
             lastPointerAngle = angle;
             InvalidateVisual();
-            window.NotifyAzimuthChanged();
             return;
         }
         int next = HitButton(point);
@@ -448,7 +492,7 @@ internal sealed class CompassSurface : FrameworkElement
         for (int i = 0; i < Buttons.Length; i++)
         {
             Vector offset = point - Buttons[i];
-            if (Math.Abs(offset.X) <= ButtonHalfSize && Math.Abs(offset.Y) <= ButtonHalfSize) return i;
+            if (Math.Abs(offset.X) <= ButtonHitHalfSize && Math.Abs(offset.Y) <= ButtonHitHalfSize) return i;
         }
         return -1;
     }
@@ -461,7 +505,7 @@ internal sealed class CompassSurface : FrameworkElement
 
     private static double PointerAngle(Point point)
     {
-        return Math.Atan2(point.Y - Center, point.X - Center) * 180 / Math.PI + 90;
+        return Math.Atan2(point.Y - CenterY, point.X - CenterX) * 180 / Math.PI + 90;
     }
 
     private static double Normalize(double angle)
@@ -487,12 +531,7 @@ internal sealed class CompassSurface : FrameworkElement
 
     private static SolidColorBrush Brush(byte r, byte g, byte b)
     {
-        return ColorBrush(Color.FromRgb(r, g, b));
-    }
-
-    private static SolidColorBrush ColorBrush(Color color)
-    {
-        SolidColorBrush brush = new SolidColorBrush(color);
+        SolidColorBrush brush = new SolidColorBrush(Color.FromRgb(r, g, b));
         brush.Freeze();
         return brush;
     }
